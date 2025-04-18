@@ -1,0 +1,66 @@
+# Python-specific ignores
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.env/
+.venv/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Data files (be careful with this - you might want to keep some data files)
+*.csv
+*.xlsx
+*.xls
+*.json
+*.sqlite
+*.db
+
+# IDE-specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Logs and databases
+*.log
+*.sqlite3
+
+# Environment files (contains sensitive information)
+.env
+
+# Machine Learning model files
+*.pkl
+*.model
+*.joblib
+
+# Temporary files
+*.tmp
+*~
+
+# Sensitive or large configuration files
+config.ini
+credentials.json
+
+# Ignore specific directories
+logs/
+tmp/
+cache/
+
+# Miscellaneous
+.pytest_cache/
+htmlcov/
+.coverage
