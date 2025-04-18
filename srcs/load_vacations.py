@@ -160,35 +160,17 @@ def main():
     parser.add_argument("--year", type=int, default=None, help="Only import a given calendar year (e.g. 2025)")
     args = parser.parse_args()
 
-    try:
-        print("Parsing French CSV…")
-        if not os.path.exists(CSV_PATH):
-            raise FileNotFoundError(f"CSV file not found: {CSV_PATH}")
-            
-        df_long = load_french_csv(CSV_PATH, school_year=args.year)
-        if df_long.empty:
-            print("Warning: No vacation data found in the CSV file.")
-            return
-            
-        df_flags = pivot_flags(df_long)
-        print(f"{len(df_flags):,} distinct dates ready for upsert → {DB_HOST}:{DB_NAME}")
+    print("Parsing French CSV …")
+    df_long = load_french_csv(CSV_PATH, school_year=args.year)
+    df_flags = pivot_flags(df_long)
+    print(f"{len(df_flags):,} distinct dates ready for upsert → {DB_HOST}:{DB_NAME}")
 
-        try:
-            upsert_t_vacances(df_flags)
-            print("✅ Import completed (ok)")
-        except SQLAlchemyError as err:
-            print(f"❌ Database error: {err}")
-            raise SystemExit(1)
-            
-    except FileNotFoundError as err:
-        print(f"❌ File error: {err}")
-        raise SystemExit(2)
-    except pd.errors.ParserError as err:
-        print(f"❌ CSV parsing error: {err}")
-        raise SystemExit(3)
-    except Exception as err:
-        print(f"❌ Unexpected error: {type(err).__name__}: {err}")
-        raise SystemExit(4)
+    try:
+        upsert_t_vacances(df_flags)
+    except SQLAlchemyError as err:
+        raise SystemExit(f"❌ Database error: {err}")
+    else:
+        print("✅ Import completed (ok)")
 
 
 if __name__ == "__main__":
