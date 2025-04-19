@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=67", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vacances-etl"
+version = "0.1.0"
+description = "ETL pipeline for French and neighbouring school holidays"
+authors = [{name = "Your Name", email = "you@example.com"}]
+readme = ""
+requires-python = ">=3.9"
+dependencies = [
+    "pandas>=2.0",
+    "sqlalchemy>=2.0",
+    "psycopg2-binary>=2.9"
+]
+
+[tool.setuptools.packages.find]
+where = ["vacances_etl"]         # src layout is NOT used, so default is fine

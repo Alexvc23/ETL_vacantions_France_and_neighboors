@@ -21,7 +21,7 @@ from sqlalchemy import Boolean, Date, create_engine, text
 from sqlalchemy.types import Integer
 
 # Default connection parameters (Khubeo_IA creds)
-DB_HOST = os.getenv("DB_HOST", "posgres")
+DB_HOST = os.getenv("DB_HOST", "postgres")
 
 # Override with real Postgres config if provided
 DB_USER = os.getenv("POSTGRES_USER", "jvalenci")
@@ -129,6 +129,10 @@ def run_etl(csv_path: str, sql_dir: str | None = None):
                     conn.exec_driver_sql(f.read())
 
     print("✅ ETL completed. Rows in t_vacances:", len(binary_df))
+
+
+
+
 
 
 if __name__ == "__main__":
