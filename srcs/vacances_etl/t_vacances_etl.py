@@ -12,12 +12,13 @@ Additional regions (Belgium, Germany, …) can be handled later by adapting
 `_extract_region_codes()`.
 """
 
+from __future__ import annotations
 import os
-from datetime import date, timedelta
-from typing import List
+from datetime import timedelta
+from typing import List, Sequence
 
 import pandas as pd
-from sqlalchemy import Boolean, Date, create_engine, text
+from sqlalchemy import Date, create_engine, text
 from sqlalchemy.types import Integer
 
 # Default connection parameters (Khubeo_IA creds)
@@ -33,90 +34,100 @@ def get_engine():
     url = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     return create_engine(url, pool_pre_ping=True)
 
+# ─── Region‑code mapping ─────────────────────────────────────────────────────
+# key = low‑cased value found in Zones column → value = column in t_vacances
+ZONE_MAP = {
+    # France
+    "zone a": "fr_zone_a",
+    "zone b": "fr_zone_b",
+    "zone c": "fr_zone_c",
+    # special case handled by academies: Corse → fr_corse
 
-# ──────────────────────────────── E x t r a c t ──────────────────────────────
+    # Belgique
+    "be_nl": "bel",
 
-def load_csv(csv_path: str) -> pd.DataFrame:
-    """Read the French school‑calendar CSV (semicolon + BOM)."""
-    return pd.read_csv(csv_path, sep=";", encoding="utf-8-sig")
+    # Allemagne
+    "de_by": "all",
 
+    # Suisse
+    "ch_zh": "sui",
 
-# ──────────────────────────────── T r a n s f o r m ──────────────────────────
+    # Italie
+    "it_bz": "ita",
+
+    # Espagne
+    "es_ga": "esp",
+
+    # Luxembourg (whole country)
+    "lu": "lux",
+}
+
+# ─── Extract helpers ─────────────────────────────────────────────────────────
+
+def load_csvs(csv_paths: Sequence[str] | str) -> pd.DataFrame:
+    """Read one or many semicolon‑separated CSV files and concatenate."""
+    if isinstance(csv_paths, str):
+        csv_paths = [csv_paths]
+    frames = [pd.read_csv(p, sep=";", encoding="utf-8-sig") for p in csv_paths]
+    return pd.concat(frames, ignore_index=True)
+
+# ─── Transform helpers ───────────────────────────────────────────────────────
 
 def _extract_region_codes(row) -> List[str]:
-    """Return region codes affected by *one* CSV row."""
     codes: List[str] = []
-    zone = str(row["Zones"]).strip().lower()
-    if zone.startswith("zone"):
-        # "zone a" → fr_zone_a
-        codes.append(f"fr_zone_{zone[-1]}")
-    # Corse special‑case (does not belong to a zone)
+    zone_raw = str(row["Zones"]).strip().lower()
+    if zone_raw in ZONE_MAP:
+        codes.append(ZONE_MAP[zone_raw])
+
+    # special‑case: Corse is in academies field but not a separate zone
     if "corse" in str(row["Académies"]).lower():
         codes.append("fr_corse")
     return codes
 
 
 def transform_to_binary(df: pd.DataFrame) -> pd.DataFrame:
-    """Expand every holiday period into daily rows and pivot to wide 0/1 table."""
-    # normalise date columns
+    """Expand periods to daily rows and pivot to wide 0/1 table."""
     df["start"] = pd.to_datetime(df["Date de début"], utc=True).dt.date
-    df["end"] = pd.to_datetime(df["Date de fin"], utc=True).dt.date
+    df["end"] = pd.to_datetime(df["Date de fin"],   utc=True).dt.date
 
-    records: List[dict] = []
+    records = []
     for _, row in df.iterrows():
-        codes = _extract_region_codes(row)
-        if not codes:
-            continue  # ignore rows we don't map yet
-
-        current = row["start"]
-        # treat *end* as exclusive so 20 Dec → 21 Dec expands one day
-        while current < row["end"]:
-            rec = {"jour": current}
-            for c in codes:
-                rec[c] = 1
+        regions = _extract_region_codes(row)
+        if not regions:
+            continue
+        d = row["start"]
+        while d < row["end"]:  # end exclusive
+            rec = {"date": d}
+            for r in regions:
+                rec[r] = 1
             records.append(rec)
-            current += timedelta(days=1)
+            d += timedelta(days=1)
 
     wide = pd.DataFrame.from_records(records)
-    # roll up duplicates (same day, same zone) and fill NaNs with 0
-    wide = wide.groupby("jour").max().fillna(0).astype(int).reset_index()
+    wide = wide.groupby("date").max().fillna(0).astype(int).reset_index()
+    zone_cols = sorted(c for c in wide.columns if c != "date")
+    return wide[["date", *zone_cols]]
 
-    # always include columns in a deterministic order
-    zone_cols = sorted([c for c in wide.columns if c != "jour"])
-    return wide[["jour", *zone_cols]]
+# ─── Load helpers ────────────────────────────────────────────────────────────
 
-
-# ──────────────────────────────── L o a d ─────────────────────────────────────
-
-def create_staging_table(engine, df: pd.DataFrame, table_name: str = "staging_vacances"):
-    df.to_sql(table_name, engine, if_exists="replace", index=False)
+def create_staging_table(engine, df: pd.DataFrame, name: str):
+    df.to_sql(name, engine, if_exists="replace", index=False)
 
 
 def load_final_table(engine, df: pd.DataFrame, table_name: str = "t_vacances"):
-    # build dtype map: date + Boolean (stored as smallint 0/1 for portability)
-    dtype = {"jour": Date()}
+    dtype = {"date": Date()}
     for col in df.columns:
-        if col == "jour":
-            continue
-        dtype[col] = Integer()  # 0/1 smallint → integer; could also use Boolean()
+        if col != "date":
+            dtype[col] = Integer()
     df.to_sql(table_name, engine, if_exists="replace", index=False, dtype=dtype)
 
+# ─── Orchestrator ────────────────────────────────────────────────────────────
 
-# ──────────────────────────────── D r i v e r ────────────────────────────────
-
-def run_etl(csv_path: str, sql_dir: str | None = None):
-    """End‑to‑end pipeline.
-
-    1. Extract CSV → DataFrame
-    2. Load staging table (optional αλλά useful for debugging)
-    3. Transform → binary matrix
-    4. Load matrix into `t_vacances`
-    5. *Optionally* run extra SQL scripts in `sql_dir` (e.g. `t_region_vacances.sql`)
-    """
+def run_etl(csv_paths: Sequence[str] | str, *, sql_dir: str | None = None):
+    """Load 1‑n CSV files and build an updated `t_vacances`."""
     engine = get_engine()
-
-    raw_df = load_csv(csv_path)
-    create_staging_table(engine, raw_df)  # comment out if not needed
+    raw_df = load_csvs(csv_paths)
+    create_staging_table(engine, raw_df, "staging_vacances")
 
     binary_df = transform_to_binary(raw_df)
     load_final_table(engine, binary_df)
@@ -128,17 +139,16 @@ def run_etl(csv_path: str, sql_dir: str | None = None):
                 with open(path, "r", encoding="utf-8") as f, engine.begin() as conn:
                     conn.exec_driver_sql(f.read())
 
-    print("✅ ETL completed. Rows in t_vacances:", len(binary_df))
-
-
-
-
+    print("✅ ETL complete – rows:", len(binary_df))
 
 
 if __name__ == "__main__":
-    import argparse
+    import argparse, glob
+    p = argparse.ArgumentParser(description="Build t_vacances from CSV(s)")
+    p.add_argument("csv", nargs="+", help="Path(s) to source CSV files – glob allowed")
+    p.add_argument("--sql-dir", default=None, help="Folder with extra SQL scripts")
+    args = p.parse_args()
 
-    p = argparse.ArgumentParser(description="Build t_vacances from CSV + SQL")
-    p.add_argument("--csv", required=True, help="Path to calendar CSV")
-    p.add_argument("--sql-dir", default=None, help="Folder containing extra SQL")
-    run_etl(**vars(p.parse_args()))
+    # expand globs on CLI (bash usually does, but Windows doesn’t)
+    csv_list = sum([glob.glob(p) for p in args.csv], [])
+    run_etl(csv_list, sql_dir=args.sql_dir)
