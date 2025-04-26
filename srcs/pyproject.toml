@@ -1,19 +1,26 @@
 [build-system]
-requires = ["setuptools>=67", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
 
-[project]
+[tool.poetry]
 name = "vacances-etl"
 version = "0.1.0"
 description = "ETL pipeline for French and neighbouring school holidays"
-authors = [{name = "Your Name", email = "you@example.com"}]
-readme = ""
-requires-python = ">=3.9"
-dependencies = [
-    "pandas>=2.0",
-    "sqlalchemy>=2.0",
-    "psycopg2-binary>=2.9"
+authors = ["Your Name <you@example.com>"] # Please update with your actual name and email
+packages = [
+    { include = "vacances_etl" } # Assumes your package code is in a 'vacances_etl' directory
 ]
 
-[tool.setuptools.packages.find]
-where = ["vacances_etl"]         # src layout is NOT used, so default is fine
+[tool.poetry.dependencies]
+python = "^3.9" # Compatible with Python 3.9 and later minor versions within 3.x
+pandas = "^2.0"
+sqlalchemy = "^2.0"
+psycopg2-binary = "^2.9"
+
+# Optional: Add development dependencies here if needed
+# [tool.poetry.group.dev.dependencies]
+# pytest = "^7.4.0"
+
+# Optional: Add tool configurations here if needed
+# [tool.pytest.ini_options]
+# addopts = "-s"
