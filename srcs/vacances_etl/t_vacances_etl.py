@@ -21,51 +21,65 @@ from sqlalchemy import Date, create_engine
 from sqlalchemy.types import Integer
 
 # Default connection parameters (Khubeo_IA creds)
-DB_HOST = os.getenv("DB_HOST", "postgres")
+# DB_HOST = os.getenv("DB_HOST", "postgres")
 
-# Override with real Postgres config if provided
-DB_USER = os.getenv("POSTGRES_USER", "jvalenci")
-DB_PASS = os.getenv("POSTGRES_PASSWORD", "mysecretpassword")
-DB_NAME = os.getenv("POSTGRES_DB", "piscineds")
-DB_PORT = os.getenv("DB_PORT", '5432')
-# ──────────────────────────────────────────────────────────────────────────────
+# # Override with real Postgres config if provided
+# DB_USER = os.getenv("POSTGRES_USER", "jvalenci")
+# DB_PASS = os.getenv("POSTGRES_PASSWORD", "mysecretpassword")
+# DB_NAME = os.getenv("POSTGRES_DB", "piscineds")
+# DB_PORT = os.getenv("DB_PORT", '5432')
+# # ──────────────────────────────────────────────────────────────────────────────
+
+# def get_engine():
+#     url = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+#     return create_engine(url, pool_pre_ping=True)
+
+
+DB_HOST = os.getenv("DB_HOST", "37.61.241.45")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_NAME = os.getenv("DB_NAME", "Khubeo_IA")
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_PASS = os.getenv("DB_PASS", "Xjp2yCm$G36WR4E")
+
 
 def get_engine():
-    url = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-    return create_engine(url, pool_pre_ping=True)
-
+    """Return a SQLAlchemy engine using the Khubeo_IA credentials."""
+    return create_engine(
+        f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}",
+        pool_pre_ping=True,
+    )
 
 # ─── Region‑code mapping ─────────────────────────────────────────────────────
 
 # key = low‑cased value found in Zones column → value = column in t_vacances
 ZONE_MAP = {
-    # France
-    "zone a": "fr_zone_a",
-    "zone b": "fr_zone_b",
-    "zone c": "fr_zone_c",
+    # # France
+    "zone a": "vac_fr_zone_a",
+    "zone b": "vac_fr_zone_b",
+    "zone c": "vac_fr_zone_c",
     # special case handled by academies: Corse → fr_corse
 
     # Belgique
-    "be_nl": "bel",
+    "be_nl": "vac_bel",
 
     # Allemagne
-    "de_by": "all",
+    "de_by": "vac_all",
 
     # Suisse
-    "ch_zh": "sui",
+    "ch_zh": "vac_sui",
 
     # Italie
-    "it_bz": "ita",
+    "it_bz": "vac_ita",
 
     # Espagne
-    "es_ga": "esp",
+    "es_ga": "vac_esp",
 
     # Luxembourg (whole country)
-    "lu": "lux",
+    "lu": "vac_lux",
 }
 
 # French columns ordering
-FRANCE_COLS = ["fr_zone_a", "fr_zone_b", "fr_zone_c", "fr_corse"]
+FRANCE_COLS = ["vac_fr_zone_a", "vac_fr_zone_b", "vac_fr_zone_c", "vac_fr_corse"]
 
 # ─── Extract ─────────────────────────────────────────────────────────────────
 def load_csvs(csv_paths: Sequence[str] | str) -> pd.DataFrame:
@@ -114,7 +128,7 @@ def _extract_region_codes(row) -> List[str]:
     if zone_raw in ZONE_MAP:
         codes.append(ZONE_MAP[zone_raw])
     if "corse" in str(row["Académies"]).lower():
-        codes.append("fr_corse")
+        codes.append("vac_fr_corse")
     return codes
 
 
@@ -179,7 +193,7 @@ def transform_to_binary(df: pd.DataFrame) -> pd.DataFrame:
         if zp in ZONE_MAP:
             regs.append(ZONE_MAP[zp])
         if "corse" in str(row["Académies"]).lower():
-            regs.append("fr_corse")
+            regs.append("vac_fr_corse")
         if not regs:
             continue
 
