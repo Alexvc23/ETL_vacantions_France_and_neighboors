@@ -35,3 +35,4 @@ if __name__ == "__main__":
     p.add_argument("csv", nargs="+", help="semicolon‑CSV files, glob ok")
     args = p.parse_args()
     paths = sum((glob.glob(x) for x in args.csv), [])
+    run_etl(paths)

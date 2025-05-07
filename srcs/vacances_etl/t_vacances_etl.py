@@ -334,4 +334,4 @@ if __name__ == "__main__":
     p.add_argument("--sql-dir", default=None, help="extra SQL scripts")
     args = p.parse_args()
     paths = sum((glob.glob(x) for x in args.csv), [])
-    run_etl(paths, sql_dir=args.sql_dir)
+    run_etl(paths, sql_dir=None)
