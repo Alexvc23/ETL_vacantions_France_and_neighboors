@@ -272,11 +272,21 @@ def load_final_table(engine, df: pd.DataFrame, table_name: str = "t_vacances"):
     - All columns except 'date' and 'annee_scolaire' are cast to Integer type
     - The function will replace the existing table if it exists
     """
-    # define dtypes: date and 0/1 flags
-    dtype = {"date": Date()}
+
+
+    # define the table columns names and data types
+    # Rename columns to add 'vac_' prefix for date and annee_scolaire
+    df = df.rename(columns={
+        "date": "vac_date", 
+        "annee_scolaire": "vac_annee_scolaire"
+    })
+    
+    # define column data types
+    dtype = {"vac_date": Date()}
     for col in df.columns:
-        if col not in ("date", "annee_scolaire"):
+        if col not in ("vac_date", "vac_annee_scolaire"):
             dtype[col] = Integer()
+
     df.to_sql(table_name, engine, if_exists="replace", index=False, dtype=dtype)
 
 # ─── Orchestrator ────────────────────────────────────────────────────────────
