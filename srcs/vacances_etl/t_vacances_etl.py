@@ -245,7 +245,7 @@ def transform_to_binary(df: pd.DataFrame) -> pd.DataFrame:
     return grouped[final]
 
 
-def load_final_table(engine, df: pd.DataFrame, table_name: str = "t_vacances"):
+def load_final_table(engine, df: pd.DataFrame, table_name: str = "t_vacances_scolaires"):
     """
     Loads the final DataFrame into a SQL table.
     
@@ -272,9 +272,7 @@ def load_final_table(engine, df: pd.DataFrame, table_name: str = "t_vacances"):
     - All columns except 'date' and 'annee_scolaire' are cast to Integer type
     - The function will replace the existing table if it exists
     """
-
-
-    # define the table columns names and data types
+       # define the table columns names and data types
     # Rename columns to add 'vac_' prefix for date and annee_scolaire
     df = df.rename(columns={
         "date": "vac_date", 
